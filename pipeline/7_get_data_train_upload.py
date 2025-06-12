@@ -172,9 +172,36 @@ def pipeline():
             'AWS_S3_ENDPOINT': 'AWS_S3_ENDPOINT',
         })
 
+if __name__ == "__main__":
+    kubeflow_endpoint = os.environ['KUBEFLOW_ENDPOINT']
+    print(f"Connecting to kfp: {kubeflow_endpoint}")
 
-if __name__ == '__main__':
-    compiler.Compiler().compile(
-        pipeline_func=pipeline,
-        package_path=__file__.replace('.py', '.yaml')
+    sa_token_path = "/run/secrets/kubernetes.io/serviceaccount/token"  # noqa: S105
+    #if config("BEARER_TOKEN"):
+    #    bearer_token = config("BEARER_TOKEN")
+    if os.path.isfile(sa_token_path):
+        with open(sa_token_path) as f:
+            bearer_token = f.read().rstrip()
+
+    # Check if the script is running in a k8s pod
+    # Get the CA from the service account if it is
+    # Skip the CA if it is not
+    sa_ca_cert = "/run/secrets/kubernetes.io/serviceaccount/service-ca.crt"
+    if os.path.isfile(sa_ca_cert) and "svc" in kubeflow_endpoint:
+        ssl_ca_cert = sa_ca_cert
+    else:
+        ssl_ca_cert = None
+        print("there is no ssl_ca_cert")
+    print(kubeflow_endpoint)
+
+    print(bearer_token)
+    print(ssl_ca_cert)
+    client = kfp.Client(
+        host=kubeflow_endpoint,
+        existing_token=bearer_token,
+        ssl_ca_cert=ssl_ca_cert,
     )
+    result = client.create_run_from_pipeline_func(pipeline, arguments={}, experiment_name="fraud-detection")
+    print(f"Starting pipeline run with run_id: {result.run_id}")
+
+
