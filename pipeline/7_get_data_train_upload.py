@@ -1,5 +1,5 @@
 import os
-
+import kfp
 from kfp import compiler
 from kfp import dsl
 from kfp.dsl import InputPath, OutputPath
